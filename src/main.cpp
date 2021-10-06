@@ -10,10 +10,10 @@ src/config.h should look like:
 
 #pragma once
 
-const char *SSID = WIFI_SSID;
-const char *PASSWORD = WIFI_PASSWORD;
-const char* CLIENT_ID = CLIENT_ID_OF_REGISTERED_APP;
-const char* TENANT_ID = TENANT_ID_OF_REGISTERED_APP;
+const char *SSID = <WIFI_SSID>;
+const char *PASSWORD = <WIFI_PASSWORD>;
+const char* CLIENT_ID = <CLIENT_ID_OF_REGISTERED_APP>;
+const char* TENANT_ID = <TENANT_ID_OF_REGISTERED_APP>;
 */
 
 TFT_eSPI tft;
@@ -31,7 +31,9 @@ bool authenticationCompleted = false;
 bool waitingForDeviceCodeEnter = true;
 
 const int DELAY_FOR_RETRY = 5000;
-const char* root_ca = \
+const int DELAY_FOR_REFRESH = 5000;
+
+const char* root_ca_auth = \
                     "-----BEGIN CERTIFICATE-----\n"
                     "MIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh\n"
                     "MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\n"
@@ -55,6 +57,30 @@ const char* root_ca = \
                     "CAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=\n"
                     "-----END CERTIFICATE-----\n";
 
+const char* root_ca_graph = \
+                    "-----BEGIN CERTIFICATE-----\n"
+                    "MIIDjjCCAnagAwIBAgIQAzrx5qcRqaC7KGSxHQn65TANBgkqhkiG9w0BAQsFADBh\n"
+                    "MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\n"
+                    "d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBH\n"
+                    "MjAeFw0xMzA4MDExMjAwMDBaFw0zODAxMTUxMjAwMDBaMGExCzAJBgNVBAYTAlVT\n"
+                    "MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j\n"
+                    "b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IEcyMIIBIjANBgkqhkiG\n"
+                    "9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuzfNNNx7a8myaJCtSnX/RrohCgiN9RlUyfuI\n"
+                    "2/Ou8jqJkTx65qsGGmvPrC3oXgkkRLpimn7Wo6h+4FR1IAWsULecYxpsMNzaHxmx\n"
+                    "1x7e/dfgy5SDN67sH0NO3Xss0r0upS/kqbitOtSZpLYl6ZtrAGCSYP9PIUkY92eQ\n"
+                    "q2EGnI/yuum06ZIya7XzV+hdG82MHauVBJVJ8zUtluNJbd134/tJS7SsVQepj5Wz\n"
+                    "tCO7TG1F8PapspUwtP1MVYwnSlcUfIKdzXOS0xZKBgyMUNGPHgm+F6HmIcr9g+UQ\n"
+                    "vIOlCsRnKPZzFBQ9RnbDhxSJITRNrw9FDKZJobq7nMWxM4MphQIDAQABo0IwQDAP\n"
+                    "BgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBhjAdBgNVHQ4EFgQUTiJUIBiV\n"
+                    "5uNu5g/6+rkS7QYXjzkwDQYJKoZIhvcNAQELBQADggEBAGBnKJRvDkhj6zHd6mcY\n"
+                    "1Yl9PMWLSn/pvtsrF9+wX3N3KjITOYFnQoQj8kVnNeyIv/iPsGEMNKSuIEyExtv4\n"
+                    "NeF22d+mQrvHRAiGfzZ0JFrabA0UWTW98kndth/Jsw1HKj2ZL7tcu7XUIOGZX1NG\n"
+                    "Fdtom/DzMNU+MeKNhJ7jitralj41E6Vf8PlwUHBHQRFXGU7Aj64GxJUTFy8bJZ91\n"
+                    "8rGOmaFvE7FBcf6IKshPECBV1/MUReXgRPTqh5Uykw7+U0b6LJ3/iyK5S9kJRaTe\n"
+                    "pLiaWN0bfVKfjllDiIGknibVb63dDcY3fe0Dkhvld1927jyNxF1WW6LZZm6zNTfl\n"
+                    "MrY=\n"
+                    "-----END CERTIFICATE-----\n";
+
 void connectWifi() {
 
   WiFi.mode(WIFI_STA);
@@ -69,6 +95,7 @@ void connectWifi() {
 }
 
 void fetchAuthToken() {
+  client.setCACert(root_ca_auth);
   HTTPClient http;
   if(WiFi.status() == WL_CONNECTED){
       http.begin(client, "https://login.microsoftonline.com/" + String(TENANT_ID) + "/oauth2/v2.0/token");
@@ -102,10 +129,13 @@ void fetchAuthToken() {
         fetchAuthToken();
       }
       http.end();  
-  }
+  } else {
+      connectWifi();
+    }
 }
 
 void getAuthDeviceCode() {
+  client.setCACert(root_ca_auth);
   HTTPClient http;
   if(WiFi.status() == WL_CONNECTED){
       http.begin(client, "https://login.microsoftonline.com/" + String(TENANT_ID) + "/oauth2/v2.0/devicecode");
@@ -144,6 +174,53 @@ void getAuthDeviceCode() {
         getAuthDeviceCode();
       }
       http.end();  
+    } else {
+      connectWifi();
+    }
+}
+
+void fetchPresence() {
+  client.setCACert(root_ca_graph);
+  HTTPClient http;
+  if(WiFi.status() == WL_CONNECTED){
+      http.begin(client, "https://graph.microsoft.com/v1.0/me/presence");
+      http.addHeader("Authorization", "Bearer " + String(accessToken));
+      int httpResponseCode = http.GET();
+
+      if (httpResponseCode > 0) {
+        if (httpResponseCode == HTTP_CODE_OK) {
+            String httpPayload = http.getString();
+
+            DynamicJsonDocument payload(4096);
+            deserializeJson(payload, httpPayload);
+
+            String availability = payload["availability"].as<String>();
+            String activity = payload["activity"].as<String>();
+
+            if (activity == "OffWork") {
+              tft.fillScreen(TFT_WHITE);
+            } else if (activity == "DoNotDisturb" ||  activity == "InACall" || activity == "InAConferenceCall" || activity == "InAMeeting" || activity == "Presenting") {
+              tft.fillScreen(TFT_RED);
+            } else if (activity == "Available") {
+              tft.fillScreen(TFT_GREEN);
+            } else {
+              tft.fillScreen(TFT_YELLOW);
+            }
+
+            tft.drawString(activity, 20, 40);
+          } else {
+            tft.drawString("Trying again....", 20, 20);
+            delay(DELAY_FOR_RETRY);
+            fetchPresence();
+          }
+      } else {
+        tft.drawString("Trying again....", 20, 20);
+        delay(DELAY_FOR_RETRY);
+        fetchPresence();
+      }
+      http.end();  
+    } else {
+      connectWifi();
     }
 }
  
@@ -152,13 +229,12 @@ void setup() {
     while(!Serial);
 
     connectWifi();
-    client.setCACert(root_ca);
 
     tft.begin();
     tft.setRotation(3);
 
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextColor(TFT_WHITE);
+    tft.fillScreen(TFT_WHITE);
+    tft.setTextColor(TFT_BLACK);
     tft.setTextSize(2);
 
     getAuthDeviceCode();
@@ -166,9 +242,7 @@ void setup() {
  
 void loop() {
   if (authenticationCompleted) {
-
-    waitingForDeviceCodeEnter = false;
-    tft.drawString(String(expirationTimer), 20, 20);
-
+    fetchPresence();
+    delay(DELAY_FOR_REFRESH);
   }
 }
